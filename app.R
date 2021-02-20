@@ -50,7 +50,7 @@ ui <- fluidPage(
             
             # Show data table for first bar chart-------------------------------
             checkboxInput(inputId = "show_data1",
-                          label = "Show data table for birth states of chosen state",
+                          label = "Show data table for birth states of chosen state residents",
                           value = TRUE),
             
             #Select metric for y axis variable of second bar chart - Metric ----
@@ -65,7 +65,7 @@ ui <- fluidPage(
                           value = TRUE),
             
             #Show summary for second bar chart ---------------------------------
-            checkboxInput(inputID = "show_summarydata2",
+            checkboxInput(inputId = "show_summarydata2",
                           label = "Show summary table of chosen metric",
                           value = TRUE),
             
@@ -75,7 +75,7 @@ ui <- fluidPage(
                       placeholder = "Enter your plot title, e.g. Where Residents of Alabama were Born"),
             
             #Select color for bar charts ---------------------------------------
-            colourInput(inputID = "col",
+            colourInput(inputId = "col",
                         label = "Select bar chart color",
                         value = "red"),
             
@@ -103,7 +103,7 @@ ui <- fluidPage(
             br(),        #a bit of visual separation
             
             #Show summary ------------------------------------------------------
-            textOutput(outputID = "summary_metric"),
+            textOutput(outputId = "summary_metric"),
             br(),        #a bit of visual separation
         
             #Download button ---------------------------------------------------
@@ -121,13 +121,13 @@ server <- function(input, output, session) {
     # Create a subset of data filtering for selected State of Current Residence ------
     states_subset <- reactive({
         req(input$current_residence) # ensure availablity of state value before proceeding
-        filter(states, input$current_residence)
+        select(states[input$current_residence,9:59])
     })
     
     #Create a subset of data filtering for selected Metric----------------------
     metric_subset <- reactive({
         req(input$metric) # ensure availability of metric value before proceeding
-        filter(states,input$metric)
+        select(states[, input$metric])
     })
     
     # Convert plot_title toTitleCase -------------------------------------------
@@ -135,8 +135,8 @@ server <- function(input, output, session) {
     
     # Create State of Current Residence barplot the plotOutput function expects --
     output$barchart_birthstate <- renderPlot({
-        barplot(data = states_subset,
-                x = colnames(states_subset[9:59]),
+        barplot(data = states_subset(),
+                x = colnames(states_subset()[9:59]),
                 y = input$current_residence,
                 xlab ="Born in",
                 ylab = "Currently living in ",
@@ -146,8 +146,8 @@ server <- function(input, output, session) {
     
     # Create the Metric barplot the second plotOutput function expect-----------
     output$barchart_metric <- renderPlot({
-        barplot(data = metric_subset,
-                x = metric_subset[,1],
+        barplot(data = metric_subset(),
+                x = metric_subset()[,1],
                 y = input$metric,
                 xlab = "State",
                 ylab = "Chosen Metric",
@@ -159,7 +159,7 @@ server <- function(input, output, session) {
     # Print first data table if checked ----------------------------------------
     output$table_birthstate <- DT::renderDataTable(
         if(input$show_data1){
-            DT::datatable(data = states_subset, 
+            DT::datatable(data = states_subset(), 
                           options = list(pageLength = 10), 
                           rownames = FALSE)
     })
@@ -167,7 +167,7 @@ server <- function(input, output, session) {
     #Print second data table if checked ----------------------------------------
     output$table_metric <- DT::renderDataTable(
         if(input$show_data2){
-            DT::datatable(data = metric_subset,
+            DT::datatable(data = metric_subset(),
                           options = list(pagelength=10),
                           rownames = FALSE)
     })
@@ -176,22 +176,23 @@ server <- function(input, output, session) {
     #Print summary of metric if checked ----------------------------------------
     output$summary_metric <- renderText(
         if(input$show_summarydata2){
-            paste(min(metric_subset),
-                  max(metric_subset),
-                  mean(metric_subset))
+            paste(min(metric_subset()),
+                  max(metric_subset()),
+                  mean(metric_subset()))
+        }
+    )
+
+    #Download data if checked ---------------------------------------------
+    output$downloadbutton <- downloadHandler(
+        filename = function(){
+            paste("state-by-state-migration-data.csv")
+        },
+        content = function(file) {
+            write.csv(states(), file)
         }
     )
 }
 
-#Download data if checked ------------------------------------------------------
-output$downloadbutton <- downloadHandler(
-    filename = function(){
-        paste("states_placeofbirth.csv")
-    },
-    content = function(file) {
-        write.csv("states_placeofbirth.csv", file)
-    }
-)
 
 # Run the application -----------------------------------------------
 shinyApp(ui = ui, server = server)
