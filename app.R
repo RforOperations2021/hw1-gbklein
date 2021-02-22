@@ -80,8 +80,7 @@ ui <- fluidPage(
                         value = "red"),
             
               # Horizontal line for visual separation --------------------------
-            hr(),
-            
+            hr()
         ),
         
         # Output: --------------------------------------------------------------
@@ -121,13 +120,18 @@ server <- function(input, output, session) {
     # Create a subset of data filtering for selected State of Current Residence ------
     states_subset <- reactive({
         req(input$current_residence) # ensure availablity of state value before proceeding
-        select(states[input$current_residence,9:59])
+        states_subset <- filter(states, `Current Residence` == input$current_residence)
+        
+        pivot <- states_subset[c(1,9:ncol(states))] %>%
+            pivot_longer(-`Current Residence`)
+        
+        return(pivot)
     })
     
     #Create a subset of data filtering for selected Metric----------------------
     metric_subset <- reactive({
         req(input$metric) # ensure availability of metric value before proceeding
-        select(states[, input$metric])
+        select(states, input$metric)
     })
     
     # Convert plot_title toTitleCase -------------------------------------------
@@ -135,13 +139,17 @@ server <- function(input, output, session) {
     
     # Create State of Current Residence barplot the plotOutput function expects --
     output$barchart_birthstate <- renderPlot({
-        barplot(data = states_subset(),
-                x = colnames(states_subset()[9:59]),
-                y = input$current_residence,
-                xlab ="Born in",
-                ylab = "Currently living in ",
-                title = pretty_plot_title(),
-                col = input$col)
+        # barplot(data = states_subset(),
+        #         x = colnames(states_subset()[9:59]),
+        #         y = input$current_residence,
+        #         xlab ="Born in",
+        #         ylab = "Currently living in ",
+        #         title = pretty_plot_title(),
+        #         col = input$col)
+        
+        ggplot(states_subset(), aes(x = name, y = value)) +
+            scale_fill_manual(values = c(input$col)) +
+            geom_bar(stat = "identity")
     })
     
     # Create the Metric barplot the second plotOutput function expect-----------
@@ -159,9 +167,12 @@ server <- function(input, output, session) {
     # Print first data table if checked ----------------------------------------
     output$table_birthstate <- DT::renderDataTable(
         if(input$show_data1){
-            DT::datatable(data = states_subset(), 
+            DT::datatable(data = select(states_subset(), -`Current Residence`),
                           options = list(pageLength = 10), 
-                          rownames = FALSE)
+                          rownames = FALSE) %>%
+                formatCurrency('value', 
+                               currency = "",
+                               digits = 0)
     })
     
     #Print second data table if checked ----------------------------------------
